@@ -1,0 +1,2 @@
+include ':app', ':push'
+rootProject.name='NewPush'
