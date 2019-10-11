@@ -10,10 +10,14 @@ import android.os.Handler;
 import android.text.TextUtils;
 
 import com.hjf.push.util.LogUtils;
+import com.hjf.push.util.NetWorkUtils;
 
 import org.java_websocket.handshake.ServerHandshake;
 
 import java.net.URI;
+
+import static com.hjf.push.PushReceiver.ACTION_CONNECT_OPEN;
+import static com.hjf.push.PushReceiver.ACTION_RECEIVE_MESSAGE;
 
 /**
  * author JayPhone
@@ -41,7 +45,7 @@ class ConnectorManager {
         if (instance == null) {
             synchronized (ConnectorManager.class) {
                 if (instance == null) {
-                    instance = new ConnectorManager(context);
+                    instance = new ConnectorManager(context.getApplicationContext());
                 }
             }
         }
@@ -80,6 +84,7 @@ class ConnectorManager {
                     super.onOpen(handshakedata);
                     registerNetWorkStateReceiver(mContext);
                     mIsReconnecting = false;
+                    onConnectOpen();
                 }
 
                 @Override
@@ -100,6 +105,20 @@ class ConnectorManager {
         } else {
             LogUtils.i("已经连接: " + url);
         }
+    }
+
+    /**
+     * 连接打开
+     */
+    private void onConnectOpen() {
+        Intent intent = new Intent();
+        intent.setPackage(mContext.getPackageName());
+        intent.setAction(ACTION_CONNECT_OPEN);
+        mContext.sendBroadcast(intent);
+    }
+
+    private void onReceiveMessage(String message) {
+
     }
 
     void sent(String message) {
@@ -135,23 +154,10 @@ class ConnectorManager {
                 @Override
                 public void onReceive(Context context, Intent intent) {
                     if (ConnectivityManager.CONNECTIVITY_ACTION.equals(intent.getAction())) {
-                        ConnectivityManager manager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-                        if (manager == null) {
-                            LogUtils.i("无网络");
-                        }
-                        // 获取网络状态信息
-                        NetworkInfo networkInfo = manager.getActiveNetworkInfo();
-                        if (networkInfo != null && networkInfo.isConnected()) {
-                            if (networkInfo.getType() == ConnectivityManager.TYPE_WIFI) {
-                                LogUtils.i("已连接WIFI网络");
-                            } else if (networkInfo.getType() == ConnectivityManager.TYPE_MOBILE) {
-                                LogUtils.i("已连接移动网络");
-                            }
-                            if (mClient != null) {
-                                mHandler.postDelayed(mReConnectRunnable, RECONNECT_INTERVAL);
-                            }
-                        } else {
-                            LogUtils.i("未连接网络");
+                        if (NetWorkUtils.hasNetWork(context)) {
+//                            if (mClient != null) {
+//                                mHandler.postDelayed(mReConnectRunnable, RECONNECT_INTERVAL);
+//                            }
                         }
                     }
                 }

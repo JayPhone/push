@@ -20,6 +20,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name="com.hjf.push.PushService"
+            android:exported="false"
+            android:process=":push" />
+
+        <receiver android:name=".BizReceiver" />
     </application>
 
 </manifest>
