@@ -3,37 +3,30 @@ package com.hjf.push;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.os.Handler;
 import android.text.TextUtils;
 
 import com.hjf.push.util.LogUtils;
-import com.hjf.push.util.NetWorkUtils;
 
 import org.java_websocket.handshake.ServerHandshake;
 
 import java.net.URI;
 
 import static com.hjf.push.PushReceiver.ACTION_CONNECT_OPEN;
-import static com.hjf.push.PushReceiver.ACTION_RECEIVE_MESSAGE;
 
 /**
  * author JayPhone
  * description: WebSocket连接管理类
  * date :2019/10/8 17:18
  */
-class ConnectorManager {
-    //重连间隔
-    private static final int RECONNECT_INTERVAL = 2000;
+public class ConnectorManager {
     //单例连接管理器
     private volatile static ConnectorManager instance;
     //WebSocket客户端
     private JWebSocketClient mClient;
-    //连接url
-    private String mUrl;
     private Context mContext;
+    //连接配置器
+    private ConnectConfig mConnectConfig;
     private BroadcastReceiver mReceiver;
     private boolean mIsReconnecting = false;
 
@@ -41,11 +34,27 @@ class ConnectorManager {
         mContext = context;
     }
 
+    private ConnectorManager(Context context, ConnectConfig connectConfig) {
+        mContext = context;
+        mConnectConfig = connectConfig;
+    }
+
     static ConnectorManager getInstance(Context context) {
         if (instance == null) {
             synchronized (ConnectorManager.class) {
                 if (instance == null) {
                     instance = new ConnectorManager(context.getApplicationContext());
+                }
+            }
+        }
+        return instance;
+    }
+
+    private static ConnectorManager getInstance(Context context, ConnectConfig connectConfig) {
+        if (instance == null) {
+            synchronized (ConnectorManager.class) {
+                if (instance == null) {
+                    instance = new ConnectorManager(context.getApplicationContext(), connectConfig);
                 }
             }
         }
@@ -64,25 +73,24 @@ class ConnectorManager {
                     mClient.reconnect();
                 } else {
                     LogUtils.i("WebSocketClient为空，重新创建");
-                    createConnect(mUrl);
+                    createConnect();
                 }
             }
         }
     };
 
-    void createConnect(final String url) {
-        mUrl = url;
-        if (TextUtils.isEmpty(url)) {
+    void createConnect() {
+        if (TextUtils.isEmpty(mConnectConfig.url)) {
             LogUtils.e("url为空");
             return;
         }
-        URI uri = URI.create(url);
+        URI uri = URI.create(mConnectConfig.url);
         if (!isConnected()) {
-            mClient = new JWebSocketClient(uri) {
+            mClient = new JWebSocketClient(uri, mConnectConfig.heartBeatInterval) {
                 @Override
                 public void onOpen(ServerHandshake handshakedata) {
                     super.onOpen(handshakedata);
-                    registerNetWorkStateReceiver(mContext);
+//                    registerNetWorkStateReceiver(mContext);
                     mIsReconnecting = false;
                     onConnectOpen();
                 }
@@ -91,7 +99,7 @@ class ConnectorManager {
                 public void onError(Exception ex) {
                     super.onError(ex);
                     mIsReconnecting = false;
-                    mHandler.postDelayed(mReConnectRunnable, RECONNECT_INTERVAL);
+                    mHandler.postDelayed(mReConnectRunnable, mConnectConfig.reconnectInterval);
                 }
 
                 @Override
@@ -100,10 +108,10 @@ class ConnectorManager {
                     mIsReconnecting = false;
                 }
             };
-            LogUtils.i("开始连接: " + url);
+            LogUtils.i("开始连接: " + mConnectConfig.url);
             mClient.connect();
         } else {
-            LogUtils.i("已经连接: " + url);
+            LogUtils.i("已经连接: " + mConnectConfig.url);
         }
     }
 
@@ -138,7 +146,7 @@ class ConnectorManager {
             e.printStackTrace();
         } finally {
             mClient = null;
-            unregisterNetWorkStateReceiver(mContext);
+//            unregisterNetWorkStateReceiver(mContext);
         }
     }
 
@@ -146,29 +154,75 @@ class ConnectorManager {
         return mClient != null && mClient.isOpen();
     }
 
-    private void registerNetWorkStateReceiver(Context context) {
-        if (mReceiver == null) {
-            IntentFilter intentFilter = new IntentFilter();
-            intentFilter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
-            mReceiver = new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    if (ConnectivityManager.CONNECTIVITY_ACTION.equals(intent.getAction())) {
-                        if (NetWorkUtils.hasNetWork(context)) {
-//                            if (mClient != null) {
-//                                mHandler.postDelayed(mReConnectRunnable, RECONNECT_INTERVAL);
-//                            }
-                        }
-                    }
-                }
-            };
-            context.registerReceiver(mReceiver, intentFilter);
+//    private void registerNetWorkStateReceiver(Context context) {
+//        if (mReceiver == null) {
+//            IntentFilter intentFilter = new IntentFilter();
+//            intentFilter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
+//            mReceiver = new BroadcastReceiver() {
+//                @Override
+//                public void onReceive(Context context, Intent intent) {
+//                    if (ConnectivityManager.CONNECTIVITY_ACTION.equals(intent.getAction())) {
+//                        if (NetWorkUtils.hasNetWork(context)) {
+////                            if (mClient != null) {
+////                                mHandler.postDelayed(mReConnectRunnable, RECONNECT_INTERVAL);
+////                            }
+//                        }
+//                    }
+//                }
+//            };
+//            context.registerReceiver(mReceiver, intentFilter);
+//        }
+//    }
+//
+//    private void unregisterNetWorkStateReceiver(Context context) {
+//        if (mReceiver != null) {
+//            context.unregisterReceiver(mReceiver);
+//        }
+//    }
+
+    public static class ConnectConfig {
+        private Context mContext;
+        //连接url
+        private String url;
+        //重连间隔：毫秒
+        private long reconnectInterval = 2000;
+        //心跳间隔:秒
+        private int heartBeatInterval = 30;
+
+        public ConnectConfig(Context context) {
+            mContext = context;
+        }
+
+        ConnectorManager build() {
+            return ConnectorManager.getInstance(mContext, this);
+        }
+
+        public String getUrl() {
+            return url;
+        }
+
+        public ConnectConfig setUrl(String url) {
+            this.url = url;
+            return this;
+        }
+
+        public long getReconnectInterval() {
+            return reconnectInterval;
+        }
+
+        public ConnectConfig setReconnectInterval(long reconnectInterval) {
+            this.reconnectInterval = reconnectInterval;
+            return this;
+        }
+
+        public long getHeartBeatInterval() {
+            return heartBeatInterval;
+        }
+
+        public ConnectConfig setHeartBeatInterval(int heartBeatInterval) {
+            this.heartBeatInterval = heartBeatInterval;
+            return this;
         }
     }
 
-    private void unregisterNetWorkStateReceiver(Context context) {
-        if (mReceiver != null) {
-            context.unregisterReceiver(mReceiver);
-        }
-    }
 }

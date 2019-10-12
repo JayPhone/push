@@ -18,11 +18,11 @@ import java.net.URI;
 public class JWebSocketClient extends WebSocketClient {
     private URI mURI;
 
-    public JWebSocketClient(URI serverUri) {
+    public JWebSocketClient(URI serverUri, int heartBeatInterval) {
         super(serverUri);
         mURI = serverUri;
         //服务端60秒检测一次，3次没有收到ping或消息则踢掉
-        setConnectionLostTimeout(30);
+        setConnectionLostTimeout(heartBeatInterval);
     }
 
     @Override

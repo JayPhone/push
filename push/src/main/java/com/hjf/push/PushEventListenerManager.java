@@ -22,7 +22,15 @@ public class PushEventListenerManager {
     public static void notifyConnectOpend() {
         if (listeners != null && listeners.size() > 0) {
             for (PushEventListener listener : listeners) {
+                listener.onConnectOpend();
+            }
+        }
+    }
 
+    public static void notifyReceiveMessage(String msg) {
+        if (listeners != null && listeners.size() > 0) {
+            for (PushEventListener listener : listeners) {
+                listener.onReceiveMessage(msg);
             }
         }
     }

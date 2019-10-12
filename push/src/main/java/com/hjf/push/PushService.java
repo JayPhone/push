@@ -8,7 +8,6 @@ import android.text.TextUtils;
 import com.hjf.push.util.LogUtils;
 
 import static com.hjf.push.Constants.KEY_URL;
-import static com.hjf.push.PushManager.ACTION_CREATE_CONNECT;
 
 /**
  * author JayPhone
@@ -26,17 +25,11 @@ public class PushService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && !TextUtils.isEmpty(intent.getAction())) {
-            String action = intent.getAction();
-            switch (action) {
-                case ACTION_CREATE_CONNECT://创建连接
-                    String url = intent.getStringExtra(KEY_URL);
-                    if (!TextUtils.isEmpty(url)) {
-                        mConnectorManager.createConnect(url);
-                    } else {
-                        LogUtils.e("onStartCommand: url为空");
-                    }
-                    break;
+        if (!PushManager.getInstance().isStarted()) {
+            PushManager.getInstance().checkInit(this).create();
+        }
+        if (PushManager.getInstance().isStarted()) {
+            if (PushReceiver.hasNetwork(this)) {
             }
         }
         return super.onStartCommand(intent, flags, startId);

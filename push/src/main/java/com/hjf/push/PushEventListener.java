@@ -6,4 +6,7 @@ package com.hjf.push;
  * date :2019/10/11 18:04
  */
 public interface PushEventListener {
+    void onConnectOpend();
+
+    void onReceiveMessage(String msg);
 }
